@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
@@ -16,72 +16,38 @@ interface Listing {
   date: string;
 }
 
-const mockListings: Listing[] = [
-  {
-    id: 1,
-    title: 'iPhone 14 Pro в отличном состоянии',
-    description: 'Продаю iPhone 14 Pro 256GB, Space Black. Состояние идеальное, всегда в чехле.',
-    category: 'Электроника',
-    price: '85 000 ₽',
-    location: 'Москва',
-    date: '2 часа назад'
-  },
-  {
-    id: 2,
-    title: 'Ищу репетитора по английскому',
-    description: 'Требуется репетитор для подготовки к IELTS. Уровень intermediate.',
-    category: 'Услуги',
-    location: 'Санкт-Петербург',
-    date: '5 часов назад'
-  },
-  {
-    id: 3,
-    title: 'Диван-кровать IKEA',
-    description: 'Продаю диван-кровать в отличном состоянии. Серый цвет, механизм работает идеально.',
-    category: 'Мебель',
-    price: '15 000 ₽',
-    location: 'Москва',
-    date: '1 день назад'
-  },
-  {
-    id: 4,
-    title: 'Отдам котёнка в добрые руки',
-    description: 'Рыжий котёнок, 3 месяца, приучен к лотку. Очень ласковый и игривый.',
-    category: 'Животные',
-    location: 'Казань',
-    date: '2 дня назад'
-  },
-  {
-    id: 5,
-    title: 'Велосипед горный Trek',
-    description: 'Горный велосипед Trek Marlin 7, рама 18", колёса 29". Отличное состояние.',
-    category: 'Спорт',
-    price: '35 000 ₽',
-    location: 'Новосибирск',
-    date: '3 дня назад'
-  },
-  {
-    id: 6,
-    title: 'Услуги программиста',
-    description: 'Создание сайтов, веб-приложений, автоматизация. React, TypeScript, Python.',
-    category: 'Услуги',
-    location: 'Удалённо',
-    date: '1 неделю назад'
-  }
-];
+const API_URL = 'https://functions.poehali.dev/5150f5d9-3c1e-4e16-aa4f-b1b3b2758481';
 
 const categories = ['Все', 'Электроника', 'Услуги', 'Мебель', 'Животные', 'Спорт'];
 
 const Listings = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Все');
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredListings = mockListings.filter(listing => {
-    const matchesSearch = listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      listing.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'Все' || listing.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  useEffect(() => {
+    fetchListings();
+  }, [searchQuery, selectedCategory]);
+
+  const fetchListings = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (searchQuery) params.append('search', searchQuery);
+      if (selectedCategory !== 'Все') params.append('category', selectedCategory);
+      
+      const response = await fetch(`${API_URL}?${params.toString()}`);
+      const data = await response.json();
+      setListings(data);
+    } catch (error) {
+      console.error('Failed to fetch listings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredListings = listings;
 
   return (
     <div className="min-h-screen bg-background">
@@ -137,45 +103,49 @@ const Listings = () => {
           </div>
         </div>
 
-        <div className="grid gap-4">
-          {filteredListings.map((listing) => (
-            <Card key={listing.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-lg font-semibold text-foreground">{listing.title}</h3>
-                      <Badge variant="secondary" className="text-xs">
-                        {listing.category}
-                      </Badge>
-                    </div>
-                    <p className="text-muted-foreground mb-3 line-clamp-2">{listing.description}</p>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Icon name="MapPin" size={16} />
-                        <span>{listing.location}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Icon name="Clock" size={16} />
-                        <span>{listing.date}</span>
-                      </div>
-                    </div>
-                  </div>
-                  {listing.price && (
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-primary">{listing.price}</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {filteredListings.length === 0 && (
+        {loading ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Загрузка...</p>
+          </div>
+        ) : filteredListings.length === 0 ? (
           <div className="text-center py-12">
             <Icon name="Search" size={48} className="mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">Объявления не найдены</p>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {filteredListings.map((listing) => (
+              <Card key={listing.id} className="hover:shadow-md transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-lg font-semibold text-foreground">{listing.title}</h3>
+                        <Badge variant="secondary" className="text-xs">
+                          {listing.category}
+                        </Badge>
+                      </div>
+                      <p className="text-muted-foreground mb-3 line-clamp-2">{listing.description}</p>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Icon name="MapPin" size={16} />
+                          <span>{listing.location}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Icon name="Clock" size={16} />
+                          <span>{listing.date}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {listing.price && (
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-primary">{listing.price}</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         )}
       </main>

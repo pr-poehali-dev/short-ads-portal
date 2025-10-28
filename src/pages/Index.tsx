@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
@@ -20,38 +20,13 @@ interface Listing {
   date: string;
 }
 
-const recentListings: Listing[] = [
-  {
-    id: 1,
-    title: 'iPhone 14 Pro в отличном состоянии',
-    description: 'Продаю iPhone 14 Pro 256GB, Space Black. Состояние идеальное, всегда в чехле.',
-    category: 'Электроника',
-    price: '85 000 ₽',
-    location: 'Москва',
-    date: '2 часа назад'
-  },
-  {
-    id: 2,
-    title: 'Ищу репетитора по английскому',
-    description: 'Требуется репетитор для подготовки к IELTS. Уровень intermediate.',
-    category: 'Услуги',
-    location: 'Санкт-Петербург',
-    date: '5 часов назад'
-  },
-  {
-    id: 3,
-    title: 'Диван-кровать IKEA',
-    description: 'Продаю диван-кровать в отличном состоянии. Серый цвет, механизм работает идеально.',
-    category: 'Мебель',
-    price: '15 000 ₽',
-    location: 'Москва',
-    date: '1 день назад'
-  }
-];
+const API_URL = 'https://functions.poehali.dev/5150f5d9-3c1e-4e16-aa4f-b1b3b2758481';
 
 const Index = () => {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -60,14 +35,55 @@ const Index = () => {
     location: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetchListings();
+  }, []);
+
+  const fetchListings = async () => {
+    try {
+      const response = await fetch(API_URL);
+      const data = await response.json();
+      setListings(data.slice(0, 3));
+    } catch (error) {
+      console.error('Failed to fetch listings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: 'Объявление создано',
-      description: 'Ваше объявление опубликовано и ожидает модерации'
-    });
-    setIsDialogOpen(false);
-    setFormData({ title: '', description: '', category: '', price: '', location: '' });
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (response.ok) {
+        toast({
+          title: 'Объявление создано',
+          description: 'Ваше объявление опубликовано'
+        });
+        setIsDialogOpen(false);
+        setFormData({ title: '', description: '', category: '', price: '', location: '' });
+        fetchListings();
+      } else {
+        toast({
+          title: 'Ошибка',
+          description: 'Не удалось создать объявление',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось создать объявление',
+        variant: 'destructive'
+      });
+    }
   };
 
   return (
@@ -232,9 +248,18 @@ const Index = () => {
               </Link>
             </div>
             <div className="grid gap-4">
-              {recentListings.map((listing) => (
-                <Card key={listing.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
+              {loading ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">Загрузка...</p>
+                </div>
+              ) : listings.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">Пока нет объявлений</p>
+                </div>
+              ) : (
+                listings.map((listing) => (
+                  <Card key={listing.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-6">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
@@ -261,9 +286,10 @@ const Index = () => {
                         </div>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
           </div>
         </section>
